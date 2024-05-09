@@ -1,0 +1,84 @@
+services:
+  db:
+    image: pgvector/pgvector:0.6.2-pg15
+    container_name: gt-db
+    restart: always
+    networks:
+      - gt
+    environment:
+      - POSTGRES_DB=gt
+      - POSTGRES_USER=superman
+      - POSTGRES_PASSWORD=IDoNotKnow
+    volumes:
+      - /data/db:/var/lib/postgresql/data
+  api:
+    image: justsong/one-api:v0.6.5
+    container_name: gt-api
+    restart: always
+    networks:
+      - gt
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    environment:
+      - SQL_DSN=postgres://superman:IDoNotKnow@gt-db:5432/gt
+      - SESSION_SECRET=IDoNotKnow
+      - MEMORY_CACHE_ENABLED=false
+      - BATCH_UPDATE_ENABLED=true
+      - BATCH_UPDATE_INTERVAL=60
+      - INITIAL_ROOT_TOKEN=R55nX2QbV4HtPsZK36322940809c468993824868867125A0
+    volumes:
+      - /data/api:/data
+  gpt:
+    image: hlohaus789/g4f:latest
+    container_name: gt-gpt
+    restart: always
+    networks:
+      - gt
+#    environment:
+#      - G4F_PROgt=http://ip:port
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./g4f:/app/har_and_cookies
+  bge:
+    image: goldtomorrow/gt-model:latest
+    container_name: gt-bge
+    restart: always
+    command: uvicorn app_bge:app --host=0.0.0.0 --port=6100
+    networks:
+      - gt
+    volumes:
+      - /data/models:/data/models
+  backend:
+    image: goldtomorrow/gt-backend:latest
+    container_name: gt-backend
+    restart: always
+    environment:
+      - DB_URI=postgresql+psycopg://gt:IDoNotKnow@gt-db:5432/gt
+      - LOG_STDOUT=true
+    networks:
+      - gt
+  frontend:
+    image: goldtomorrow/gt-frontend:latest
+    container_name: gt-frontend
+    ports:
+      - "80:3000"
+    networks:
+      - gt
+    depends_on:
+      - api
+      - backend
+    restart: always
+    environment:
+      - DEFAULT_ROOT_PSW=IDoNotKnow
+      - API_URL=http://gt-api:3000/v1
+      - API_KEY=sk-R55nX2QbV4HtPsZK36322940809c468993824868867125A0
+      - TOKEN_KEY=IDoNotKnow
+      - ROOT_KEY=IDoNotKnow
+      - FILE_TOKEN_KEY=IDoNotKnow
+    volumes:
+      - /data/frontend:/app/tmp
+networks:
+  gt:

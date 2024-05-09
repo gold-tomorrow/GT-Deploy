@@ -1,0 +1,52 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    gt.app: backend
+  name: gt-backend
+  namespace: gt
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    gt.app: backend
+  name: gt-backend
+  namespace: gt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gt.app: backend
+  template:
+    metadata:
+      labels:
+        gt.app: backend
+    spec:
+      containers:
+        - image: goldtomorrow/gt-backend:latest
+          name: main
+          env:
+            - name: LOG_DIR
+              value: "/app/logs"
+            - name: LOG_STDOUT
+              value: "true"
+            - name: DB_URI
+              value: "postgresql+psycopg://gt:IDoNotKnow@gt-db:5432/gt"
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - mountPath: /app/logs
+              name: backend-log
+      restartPolicy: Always
+      volumes:
+        - name: backend-log
+          persistentVolumeClaim:
+            claimName: gt-backend

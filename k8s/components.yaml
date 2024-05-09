@@ -1,0 +1,165 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    gt.app: db
+  name: gt-db
+  namespace: gt
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    gt.app: db
+  name: gt-db
+  namespace: gt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gt.app: db
+  template:
+    metadata:
+      labels:
+        gt.app: db
+    spec:
+      containers:
+        - image: pgvector/pgvector:0.6.2-pg15
+          name: main
+          env:
+            - name: POSTGRES_DB
+              value: gt
+            - name: POSTGRES_PASSWORD
+              value: IDoNotKnow
+            - name: POSTGRES_USER
+              value: superman
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: db-data
+      restartPolicy: Always
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: gt-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    gt.app: db
+  name: gt-db
+  namespace: gt
+spec:
+  ports:
+    - name: "5432"
+      port: 5432
+      targetPort: 5432
+  selector:
+    gt.app: db
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    gt.app: api
+  name: gt-api
+  namespace: gt
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    gt.app: api
+  name: gt-api
+  namespace: gt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gt.app: api
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        gt.app: api
+    spec:
+      containers:
+        - image: justsong/one-api:v0.6.5
+          name: main
+          env:
+            - name: BATCH_UPDATE_ENABLED
+              value: "true"
+            - name: BATCH_UPDATE_INTERVAL
+              value: "30"
+            - name: INITIAL_ROOT_TOKEN
+              value: R55nX2QbV4HtPsZK36322940809c468993824868867125A0
+            - name: MEMORY_CACHE_ENABLED
+              value: "false"
+            - name: SESSION_SECRET
+              value: IDoNotKnow
+            - name: SQL_DSN
+              value: postgres://superman:IDoNotKnow@gt-db:5432/gt
+          volumeMounts:
+            - mountPath: /data
+              name: api-data
+      restartPolicy: Always
+      volumes:
+        - name: api-data
+          persistentVolumeClaim:
+            claimName: gt-api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    gt.app: api
+  name: gt-api
+  namespace: gt
+spec:
+  type: NodePort
+  ports:
+    - name: "3000"
+      port: 3000
+      targetPort: 3000
+      nodePort: 31000
+  selector:
+    gt.app: api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    gt.app: gpt
+  name: gt-gpt
+  namespace: gt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gt.app: gpt
+  template:
+    metadata:
+      labels:
+        gt.app: gpt
+    spec:
+      containers:
+        - image: hlohaus789/g4f:latest
+          name: main
+          ports:
+            - containerPort: 1337
+            - containerPort: 8080
+      restartPolicy: Always

@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    gt.app: frontend
+  name: gt-frontend
+  namespace: gt
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    gt.app: frontend
+  name: gt-frontend
+  namespace: gt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gt.app: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        gt.app: frontend
+    spec:
+      containers:
+        - image: goldtomorrow/gt-frontend:latest
+          name: main
+          env:
+            - name: API_URL
+              value: http://gt-api:3000/v1
+            - name: API_KEY
+              value: sk-R55nX2QbV4HtPsZK36322940809c468993824868867125A0
+            - name: RERANK_URL
+              value: http://gt-bge:6100/api/v1/rerank
+            - name: BACKEND_URL
+              value: http://gt-backend:8080/api/v1
+            - name: DEFAULT_ROOT_PSW
+              value: "IDoNotKnow"
+            - name: FILE_TOKEN_KEY
+              value: "IDoNotKnow"
+            - name: ROOT_KEY
+              value: "IDoNotKnow"
+            - name: TOKEN_KEY
+              value: "IDoNotKnow"
+          volumeMounts:
+            - mountPath: /app/tmp
+              name: frontend-tmp
+      restartPolicy: Always
+      volumes:
+        - name: frontend-tmp
+          persistentVolumeClaim:
+            claimName: gt-frontend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    gt.app: frontend
+  name: gt-frontend
+  namespace: gt
+spec:
+  type: NodePort
+  ports:
+    - name: "3000"
+      port: 3000
+      targetPort: 3000
+      nodePort: 32000
+  selector:
+    gt.app: frontend

@@ -1,0 +1,105 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    gt.app: models
+  name: gt-bge
+  namespace: gt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gt.app: models
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        gt.app: models
+    spec:
+      containers:
+        - image: goldtomorrow/gt-model:latest
+          name: main
+          args:
+            - uvicorn
+            - app_bge:app
+            - --host=0.0.0.0
+            - --port=6100
+            - --workers=1
+          ports:
+            - containerPort: 6100
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: /data/models
+              name: models
+      restartPolicy: Always
+      volumes:
+        - name: models
+          hostPath:
+            path: /data/models
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    gt.app: models
+  name: gt-moe
+  namespace: gt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gt.app: models
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        gt.app: models
+    spec:
+      containers:
+        - image: goldtomorrow/gt-model:latest
+          name: main
+          args:
+            - uvicorn
+            - app_moe_7b:app
+            - --host=0.0.0.0
+            - --port=6200
+            - --workers=1
+          ports:
+            - containerPort: 6200
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - mountPath: /data/models
+              name: models
+      restartPolicy: Always
+      volumes:
+        - name: models
+          hostPath:
+            path: /data/models
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    gt.app: models
+  name: gt-models
+  namespace: gt
+spec:
+  type: NodePort
+  ports:
+    - name: "bge-port"
+      port: 6100
+      targetPort: 6100
+      nodePort: 30061
+    - name: "moe-port"
+      port: 6200
+      targetPort: 6200
+      nodePort: 30062
+  selector:
+    gt.app: models
